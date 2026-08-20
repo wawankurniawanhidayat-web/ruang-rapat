@@ -229,7 +229,7 @@
         (didapat dari Firebase Console > Project settings > General
          > Your apps > SDK setup and configuration)
      ===================================================================== */
- const firebaseConfig = {
+  const firebaseConfig = {
   apiKey: "AIzaSy...",
   authDomain: "ruang-rapat-inspektorat.firebaseapp.com",
   projectId: "ruang-rapat-inspektorat",
@@ -386,7 +386,7 @@
         try {
           await auth.signInWithEmailAndPassword(email, pass);
         } catch (e) {
-          errEl.textContent = 'Login gagal: email/kata sandi salah.';
+          errEl.textContent = `Login gagal (${e.code || 'error'}): ${e.message}`;
         }
       });
     }
