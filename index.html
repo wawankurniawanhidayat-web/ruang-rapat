@@ -230,13 +230,13 @@
          > Your apps > SDK setup and configuration)
      ===================================================================== */
   const firebaseConfig = {
-  apiKey: "AIzaSy...",
-  authDomain: "ruang-rapat-inspektorat.firebaseapp.com",
-  projectId: "ruang-rapat-inspektorat",
-  storageBucket: "ruang-rapat-inspektorat.appspot.com",
-  messagingSenderId: "123456789",
-  appId: "1:123456789:web:abcdef123456"
-};
+    apiKey: "GANTI_DENGAN_API_KEY",
+    authDomain: "GANTI.firebaseapp.com",
+    projectId: "GANTI_PROJECT_ID",
+    storageBucket: "GANTI.appspot.com",
+    messagingSenderId: "GANTI",
+    appId: "GANTI"
+  };
   /* ===================================================================== */
 
   const isConfigured = firebaseConfig.apiKey && !firebaseConfig.apiKey.includes("GANTI");
@@ -385,7 +385,7 @@
         try {
           await auth.signInWithEmailAndPassword(email, pass);
         } catch (e) {
-          errEl.textContent = 'Login gagal: email/kata sandi salah.';
+          errEl.textContent = `Login gagal (${e.code || 'error'}): ${e.message}`;
         }
       });
     }
