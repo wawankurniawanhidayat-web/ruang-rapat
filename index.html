@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Penjadwalan Ruang Rapat — Inspektorat Daerah Kota Magelang</title>
+
+<!-- ===================== FIREBASE SDK (CDN, tanpa build step) ===================== -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+<style>
+  :root {
+    --navy: #123B63; --navy2: #1B4E7A; --gold: #C9A227;
+    --bg: #F4F6F8; --border: #E4E9EE; --text: #1A2733; --muted: #8A97A3;
+    --red-bg: #FCE8E8; --red-text: #B3261E; --red-dot: #DC2626;
+    --green-bg: #E6F4EA; --green-text: #1E7A34; --green-dot: #16A34A;
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:'Segoe UI', system-ui, -apple-system, sans-serif; background:var(--bg); color:var(--text); }
+  .wrap { max-width:1100px; margin:0 auto; padding:28px 20px 60px; }
+  .header {
+    background: linear-gradient(135deg, var(--navy) 0%, var(--navy2) 100%);
+    border-radius:14px; padding:22px 28px; color:#fff;
+    display:flex; align-items:center; justify-content:space-between; gap:16px;
+    box-shadow:0 6px 18px rgba(18,59,99,0.25); margin-bottom:24px; flex-wrap:wrap;
+  }
+  .header-left { display:flex; align-items:center; gap:16px; }
+  .header .badge { width:46px; height:46px; border-radius:50%; background:var(--gold);
+    display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:22px; }
+  .header .eyebrow { font-size:12px; letter-spacing:1.5px; opacity:.8; font-weight:600; }
+  .header .title { font-size:21px; font-weight:700; font-family:Georgia, serif; }
+
+  .auth-box { display:flex; align-items:center; gap:8px; }
+  .auth-box input {
+    border:1px solid rgba(255,255,255,.4); background:rgba(255,255,255,.12); color:#fff;
+    border-radius:7px; padding:7px 10px; font-size:13px; outline:none;
+  }
+  .auth-box input::placeholder { color:rgba(255,255,255,.7); }
+  .btn-ghost {
+    background:rgba(255,255,255,.15); border:1px solid rgba(255,255,255,.4); color:#fff;
+    border-radius:7px; padding:7px 12px; font-size:13px; cursor:pointer; font-weight:600;
+  }
+  .btn-ghost:hover { background:rgba(255,255,255,.25); }
+  .admin-pill {
+    background:var(--gold); color:var(--navy); font-weight:700; font-size:12px;
+    padding:5px 10px; border-radius:999px;
+  }
+  .auth-error { color:#FFD3D0; font-size:12px; margin-top:4px; }
+
+  .grid { display:grid; grid-template-columns:340px 1fr; gap:20px; }
+  .grid.viewer-only { grid-template-columns:1fr; }
+  @media (max-width:780px) { .grid { grid-template-columns:1fr; } }
+
+  .card { background:#fff; border-radius:12px; border:1px solid var(--border); box-shadow:0 1px 3px rgba(0,0,0,0.06); }
+  .card-pad { padding:20px; }
+  .card-title { font-weight:700; font-size:15px; margin-bottom:14px; display:flex; align-items:center; gap:8px; }
+  .sticky { position:sticky; top:20px; }
+
+  form { display:flex; flex-direction:column; gap:12px; }
+  label.field { display:flex; flex-direction:column; gap:5px; font-size:12.5px; font-weight:600; color:#3B4A58; }
+  input, select, textarea {
+    border:1px solid #D6DEE5; border-radius:7px; padding:8px 10px;
+    font-size:13.5px; color:var(--text); outline:none; background:#fff; font-family:inherit;
+  }
+  textarea { resize:vertical; }
+  .row-2 { display:flex; gap:8px; }
+  .row-2 > * { flex:1; }
+  .hari-hint { font-size:12.5px; color:#5B6B7A; margin-top:-6px; }
+  .checkbox-row { display:flex; align-items:center; gap:7px; font-size:12.5px; color:#3B4A58; margin-top:-6px; }
+  .btn-primary {
+    margin-top:4px; background:var(--navy); color:#fff; border:none; border-radius:8px;
+    padding:10px 14px; font-weight:600; font-size:14px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; gap:8px;
+  }
+  .btn-primary:hover { background:#0e2f4f; }
+  .btn-primary:disabled { opacity:.5; cursor:not-allowed; }
+  .error-text { color:var(--red-text); font-size:12.5px; }
+
+  .legend { margin-top:16px; font-size:12.5px; color:#4A5A68; }
+  .legend-title { font-weight:700; font-size:13px; margin-bottom:8px; color:var(--text); }
+  .legend-row { display:flex; align-items:flex-start; gap:8px; margin-bottom:6px; }
+  .dot { width:9px; height:9px; border-radius:50%; margin-top:3px; flex-shrink:0; }
+
+  .status-badge { display:inline-flex; align-items:center; gap:6px; padding:4px 10px;
+    border-radius:999px; font-size:12.5px; font-weight:600; white-space:nowrap; }
+  .status-badge .dot { width:7px; height:7px; margin-top:0; }
+  .status-red { background:var(--red-bg); color:var(--red-text); }
+  .status-red .dot { background:var(--red-dot); }
+  .status-green { background:var(--green-bg); color:var(--green-text); }
+  .status-green .dot { background:var(--green-dot); }
+
+  .board { display:grid; grid-template-columns:repeat(3, 1fr); gap:12px; }
+  @media (max-width:560px) { .board { grid-template-columns:1fr; } }
+  .board-cell { border:1px solid var(--border); border-radius:10px; padding:12px; }
+  .board-cell .room-name { font-weight:700; font-size:13.5px; margin-bottom:8px; }
+  .board-empty { font-size:12.5px; color:var(--muted); }
+  .board-items { display:flex; flex-direction:column; gap:6px; }
+
+  .table-header { padding:14px 18px; border-bottom:1px solid var(--border); font-weight:700;
+    font-size:15px; display:flex; align-items:center; gap:8px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  thead tr { background:var(--bg); text-align:left; }
+  th { padding:10px 14px; font-size:11.5px; letter-spacing:.5px; color:#5B6B7A; font-weight:700; }
+  td { padding:10px 14px; vertical-align:top; border-top:1px solid #EDF1F4; }
+  .hari-cell strong { display:block; }
+  .hari-cell .tgl { color:var(--muted); font-size:12px; }
+  .empty-state { padding:24px; text-align:center; color:var(--muted); font-size:13.5px; }
+  .del-btn { background:none; border:none; cursor:pointer; color:var(--red-text); padding:4px; font-size:15px; }
+  .footnote { max-width:1100px; margin:18px auto 0; font-size:11.5px; color:#9AA6B0; text-align:center; }
+  .conn-warn {
+    max-width:1100px; margin:0 auto 16px; background:#FFF4E5; border:1px solid #F5C97B;
+    color:#7A4E00; padding:10px 14px; border-radius:8px; font-size:13px; display:none;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="conn-warn" id="configWarn">
+    ⚠️ Firebase belum dikonfigurasi. Buka file ini di editor, isi <code>firebaseConfig</code> di bagian bawah script
+    sesuai project Firebase Anda (lihat panduan setup yang menyertai file ini).
+  </div>
+
+  <div class="header">
+    <div class="header-left">
+      <div class="badge">🚪</div>
+      <div>
+        <div class="eyebrow">INSPEKTORAT DAERAH KOTA MAGELANG</div>
+        <div class="title">Penjadwalan Ruang Rapat</div>
+      </div>
+    </div>
+
+    <div id="authArea">
+      <!-- Diisi oleh JS: form login admin ATAU pill "Admin" + tombol keluar -->
+    </div>
+  </div>
+
+  <div class="grid" id="mainGrid">
+    <!-- FORM (hanya tampil untuk admin) -->
+    <div id="formColumn" style="display:none;">
+      <div class="card card-pad sticky">
+        <div class="card-title">➕ Tambah Jadwal</div>
+        <form id="bookingForm">
+          <label class="field">Tanggal
+            <input type="date" id="f-tanggal" required />
+          </label>
+          <div class="hari-hint" id="hariHint" style="display:none;"></div>
+
+          <div class="row-2">
+            <label class="field">Jam Mulai
+              <input type="time" id="f-jamMulai" value="08:00" required />
+            </label>
+            <label class="field">Jam Selesai
+              <input type="time" id="f-jamSelesai" />
+            </label>
+          </div>
+          <label class="checkbox-row">
+            <input type="checkbox" id="f-jamSelesaiOpen" checked />
+            s.d selesai (jam tidak ditentukan)
+          </label>
+
+          <label class="field">Ruangan
+            <select id="f-ruangan">
+              <option value="integritas">Integritas</option>
+              <option value="quality">Quality</option>
+              <option value="bpk">BPK</option>
+            </select>
+          </label>
+
+          <label class="field" id="parsialField">Penggunaan Ruang Integritas
+            <select id="f-parsial">
+              <option value="full">Penuh (tidak disekat)</option>
+              <option value="A">Parsial A (sekat 1)</option>
+              <option value="B">Parsial B (sekat 2)</option>
+            </select>
+          </label>
+
+          <label class="field">Keterangan
+            <textarea id="f-keterangan" rows="3" placeholder="Contoh: Digunakan Irsus Rapat APIP APH"></textarea>
+          </label>
+
+          <div class="error-text" id="formError"></div>
+          <button type="submit" class="btn-primary" id="submitBtn">➕ Simpan Jadwal</button>
+        </form>
+      </div>
+
+      <div class="card card-pad legend">
+        <div class="legend-title">Keterangan Warna</div>
+        <div class="legend-row"><span class="dot" style="background:var(--red-dot)"></span>
+          <span>Ruang terpakai penuh, atau kedua sekat Integritas terpakai</span></div>
+        <div class="legend-row"><span class="dot" style="background:var(--green-dot)"></span>
+          <span>Ruang Integritas terpakai sebagian (satu sekat saja)</span></div>
+      </div>
+    </div>
+
+    <!-- RIGHT (selalu tampil, semua orang bisa lihat) -->
+    <div style="display:flex; flex-direction:column; gap:20px;">
+      <div class="card card-pad">
+        <div class="card-title">📅 Status Hari Ini — <span id="todayLabel"></span></div>
+        <div class="board" id="todayBoard"></div>
+      </div>
+
+      <div class="card">
+        <div class="table-header">🕒 Seluruh Jadwal</div>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>Hari / Tanggal</th><th>Jam</th><th>Ruangan</th><th>Status</th><th>Keterangan</th><th></th>
+              </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footnote">
+    Jadwal tersinkron otomatis untuk semua pengguna. Hanya admin yang dapat menambah/menghapus jadwal.
+  </div>
+</div>
+
+<script>
+  /* =====================================================================
+     1) ISI KONFIGURASI FIREBASE ANDA DI SINI
+        (didapat dari Firebase Console > Project settings > General
+         > Your apps > SDK setup and configuration)
+     ===================================================================== */
+  const firebaseConfig = {
+  apiKey: "AIzaSy...",
+  authDomain: "ruang-rapat-inspektorat.firebaseapp.com",
+  projectId: "ruang-rapat-inspektorat",
+  storageBucket: "ruang-rapat-inspektorat.appspot.com",
+  messagingSenderId: "123456789",
+  appId: "1:123456789:web:abcdef123456"
+};
+  /* ===================================================================== */
+
+  const isConfigured = firebaseConfig.apiKey && !firebaseConfig.apiKey.includes("GANTI");
+  if (!isConfigured) {
+    document.getElementById('configWarn').style.display = 'block';
+  }
+
+  let auth, db;
+  if (isConfigured) {
+    firebase.initializeApp(firebaseConfig);
+    auth = firebase.auth();
+    db = firebase.firestore();
+  }
+
+  const RUANGAN_LIST = [
+    { id: 'integritas', label: 'Integritas' },
+    { id: 'quality', label: 'Quality' },
+    { id: 'bpk', label: 'BPK' },
+  ];
+  const HARI_ID = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jum'at", "Sabtu"];
+
+  function hariFromTanggal(tanggal) {
+    if (!tanggal) return '';
+    const d = new Date(tanggal + 'T00:00:00');
+    return isNaN(d.getTime()) ? '' : HARI_ID[d.getDay()];
+  }
+  function formatTanggal(tanggal) {
+    if (!tanggal) return '';
+    const d = new Date(tanggal + 'T00:00:00');
+    if (isNaN(d.getTime())) return tanggal;
+    return d.toLocaleDateString('id-ID', { day:'2-digit', month:'long', year:'numeric' });
+  }
+  function roomLabel(id) { return (RUANGAN_LIST.find(r => r.id === id) || {}).label || id; }
+
+  function getStatus(booking, all) {
+    if (booking.ruangan !== 'integritas') return { color:'red', label:'Terpakai' };
+    if (booking.parsial === 'full') return { color:'red', label:'Terpakai (Penuh)' };
+    const sibling = all.find(b =>
+      b.id !== booking.id && b.ruangan === 'integritas' && b.tanggal === booking.tanggal &&
+      b.parsial && b.parsial !== 'full' && b.parsial !== booking.parsial
+    );
+    if (sibling) return { color:'red', label:'Terpakai (Parsial A & B)' };
+    return { color:'green', label:`Terpakai Sebagian (Parsial ${booking.parsial})` };
+  }
+
+  function escapeHTML(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+  function statusBadgeHTML(status) {
+    return `<span class="status-badge status-${status.color}"><span class="dot"></span>${status.label}</span>`;
+  }
+
+  let bookings = [];
+  let isAdmin = false;
+
+  function render() {
+    const todayStr = new Date().toISOString().slice(0, 10);
+    document.getElementById('todayLabel').textContent = formatTanggal(todayStr);
+
+    const boardEl = document.getElementById('todayBoard');
+    boardEl.innerHTML = RUANGAN_LIST.map(r => {
+      const items = bookings.filter(b => b.ruangan === r.id && b.tanggal === todayStr);
+      const inner = items.length === 0
+        ? `<div class="board-empty">Kosong</div>`
+        : `<div class="board-items">${items.map(it => statusBadgeHTML(getStatus(it, bookings))).join('')}</div>`;
+      return `<div class="board-cell"><div class="room-name">${r.label}</div>${inner}</div>`;
+    }).join('');
+
+    const sorted = [...bookings].sort((a, b) => {
+      if (a.tanggal !== b.tanggal) return a.tanggal < b.tanggal ? -1 : 1;
+      return (a.jamMulai || '').localeCompare(b.jamMulai || '');
+    });
+    const tbody = document.getElementById('tableBody');
+    if (sorted.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state">Belum ada jadwal.</div></td></tr>`;
+      return;
+    }
+    tbody.innerHTML = sorted.map(b => {
+      const status = getStatus(b, bookings);
+      const parsialSuffix = (b.parsial && b.parsial !== 'full') ? ` <span style="color:var(--muted)">(${b.parsial})</span>` : '';
+      const delBtn = isAdmin ? `<button class="del-btn" data-id="${b.id}" title="Hapus">🗑</button>` : '';
+      return `
+        <tr>
+          <td class="hari-cell"><strong>${b.hari}</strong><span class="tgl">${formatTanggal(b.tanggal)}</span></td>
+          <td>${b.jamMulai} s.d ${b.jamSelesai === 'selesai' ? 'selesai' : b.jamSelesai}</td>
+          <td>${roomLabel(b.ruangan)}${parsialSuffix}</td>
+          <td>${statusBadgeHTML(status)}</td>
+          <td style="max-width:260px;">${b.keterangan ? escapeHTML(b.keterangan) : '—'}</td>
+          <td>${delBtn}</td>
+        </tr>`;
+    }).join('');
+
+    if (isAdmin) {
+      tbody.querySelectorAll('.del-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          try { await db.collection('bookings').doc(btn.dataset.id).delete(); }
+          catch (e) { alert('Gagal menghapus: ' + e.message); }
+        });
+      });
+    }
+  }
+
+  // ---------- Firestore realtime sync (semua pengguna, termasuk yang tidak login) ----------
+  function startBookingsListener() {
+    if (!isConfigured) return;
+    db.collection('bookings').onSnapshot(
+      (snap) => {
+        bookings = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        render();
+      },
+      (err) => {
+        console.error(err);
+      }
+    );
+  }
+
+  // ---------- Auth UI ----------
+  const authArea = document.getElementById('authArea');
+
+  function renderAuthArea(user) {
+    if (user) {
+      authArea.innerHTML = `
+        <div class="auth-box">
+          <span class="admin-pill">Admin</span>
+          <button class="btn-ghost" id="logoutBtn">Keluar</button>
+        </div>`;
+      document.getElementById('logoutBtn').addEventListener('click', () => auth.signOut());
+    } else {
+      authArea.innerHTML = `
+        <div>
+          <div class="auth-box">
+            <input type="email" id="loginEmail" placeholder="Email admin" />
+            <input type="password" id="loginPass" placeholder="Kata sandi" />
+            <button class="btn-ghost" id="loginBtn">Masuk sebagai Admin</button>
+          </div>
+          <div class="auth-error" id="loginError"></div>
+        </div>`;
+      document.getElementById('loginBtn').addEventListener('click', async () => {
+        const email = document.getElementById('loginEmail').value.trim();
+        const pass = document.getElementById('loginPass').value;
+        const errEl = document.getElementById('loginError');
+        errEl.textContent = '';
+        if (!isConfigured) { errEl.textContent = 'Firebase belum dikonfigurasi.'; return; }
+        try {
+          await auth.signInWithEmailAndPassword(email, pass);
+        } catch (e) {
+          errEl.textContent = 'Login gagal: email/kata sandi salah.';
+        }
+      });
+    }
+  }
+
+  function setAdminUI(adminOn) {
+    isAdmin = adminOn;
+    document.getElementById('formColumn').style.display = adminOn ? 'block' : 'none';
+    document.getElementById('mainGrid').classList.toggle('viewer-only', !adminOn);
+    render();
+  }
+
+  if (isConfigured) {
+    auth.onAuthStateChanged((user) => {
+      renderAuthArea(user);
+      setAdminUI(!!user);
+    });
+    startBookingsListener();
+  } else {
+    renderAuthArea(null);
+    setAdminUI(false);
+  }
+
+  // ---------- Form (admin) behavior ----------
+  const ruanganSelect = document.getElementById('f-ruangan');
+  const parsialField = document.getElementById('parsialField');
+  const tanggalInput = document.getElementById('f-tanggal');
+  const hariHint = document.getElementById('hariHint');
+  const jamSelesaiInput = document.getElementById('f-jamSelesai');
+  const jamSelesaiOpenCb = document.getElementById('f-jamSelesaiOpen');
+
+  function updateParsialVisibility() {
+    parsialField.style.display = ruanganSelect.value === 'integritas' ? 'flex' : 'none';
+  }
+  ruanganSelect.addEventListener('change', updateParsialVisibility);
+  updateParsialVisibility();
+
+  tanggalInput.addEventListener('change', () => {
+    const h = hariFromTanggal(tanggalInput.value);
+    if (h) { hariHint.style.display = 'block'; hariHint.innerHTML = `Hari: <strong>${h}</strong>`; }
+    else { hariHint.style.display = 'none'; }
+  });
+
+  function updateJamSelesaiState() {
+    jamSelesaiInput.disabled = jamSelesaiOpenCb.checked;
+    jamSelesaiInput.style.opacity = jamSelesaiOpenCb.checked ? 0.5 : 1;
+  }
+  jamSelesaiOpenCb.addEventListener('change', updateJamSelesaiState);
+  updateJamSelesaiState();
+
+  document.getElementById('bookingForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const errorEl = document.getElementById('formError');
+    errorEl.textContent = '';
+
+    if (!isAdmin) { errorEl.textContent = 'Hanya admin yang dapat menambah jadwal.'; return; }
+
+    const tanggal = tanggalInput.value;
+    if (!tanggal) { errorEl.textContent = 'Tanggal wajib diisi.'; return; }
+    const jamSelesaiOpen = jamSelesaiOpenCb.checked;
+    if (!jamSelesaiOpen && !jamSelesaiInput.value) {
+      errorEl.textContent = "Jam selesai wajib diisi, atau centang 's.d selesai'.";
+      return;
+    }
+    const ruangan = ruanganSelect.value;
+    const entry = {
+      hari: hariFromTanggal(tanggal),
+      tanggal: tanggal,
+      jamMulai: document.getElementById('f-jamMulai').value,
+      jamSelesai: jamSelesaiOpen ? 'selesai' : jamSelesaiInput.value,
+      ruangan: ruangan,
+      parsial: ruangan === 'integritas' ? document.getElementById('f-parsial').value : null,
+      keterangan: document.getElementById('f-keterangan').value.trim(),
+      dibuatPada: Date.now(),
+    };
+
+    const submitBtn = document.getElementById('submitBtn');
+    submitBtn.disabled = true;
+    try {
+      await db.collection('bookings').add(entry);
+      document.getElementById('f-jamMulai').value = '08:00';
+      jamSelesaiInput.value = '';
+      jamSelesaiOpenCb.checked = true;
+      updateJamSelesaiState();
+      document.getElementById('f-parsial').value = 'full';
+      document.getElementById('f-keterangan').value = '';
+    } catch (err) {
+      errorEl.textContent = 'Gagal menyimpan: ' + err.message;
+    } finally {
+      submitBtn.disabled = false;
+    }
+  });
+</script>
+</body>
+</html>
